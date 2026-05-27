@@ -1,0 +1,11 @@
+{
+  "commands": {
+    "Run Flask App": {
+      "id": "terminal_1",
+      "cmd": "source venv/bin/activate && flask run --host=0.0.0.0 --port=3000"
+    }
+  },
+  "preview": {
+    "Flask App": "https://{{domain3000}}/"
+  }
+}
