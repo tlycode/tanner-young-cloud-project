@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block content %}
+    <h1>Products</h1>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem;">
+        {% for product in products %}
+            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem;">
+                {% if product.image_url %}
+                    <img src="{{ product.image_url }}" alt="{{ product.name }}" style="width: 100%; height: 160px; object-fit: cover; border-radius: 4px;">
+                {% endif %}
+                <h2 style="font-size: 1.1rem; margin: 0.5rem 0;">
+                    <a href="{{ url_for('main.product_detail', id=product.id) }}" style="text-decoration: none; color: #222;">
+                        {{ product.name }}
+                    </a>
+                </h2>
+                <p style="margin: 0; color: #555;">${{ "%.2f"|format(product.price) }}</p>
+                <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #888;">{{ product.stock }} in stock</p>
+            </div>
+        {% else %}
+            <p>No products available yet.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

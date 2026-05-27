@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+    <a href="{{ url_for('main.index') }}">&larr; Back to products</a>
+    <div style="margin-top: 1.5rem;">
+        {% if product.image_url %}
+            <img src="{{ product.image_url }}" alt="{{ product.name }}" style="max-width: 400px; border-radius: 6px;">
+        {% endif %}
+        <h1>{{ product.name }}</h1>
+        {% if product.description %}
+            <p>{{ product.description }}</p>
+        {% endif %}
+        <p><strong>Price:</strong> ${{ "%.2f"|format(product.price) }}</p>
+        <p><strong>In stock:</strong> {{ product.stock }}</p>
+    </div>
+{% endblock %}
