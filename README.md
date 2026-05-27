@@ -77,6 +77,25 @@ Then click **Preview → "Flask App"** in the Codio IDE to open the app in your 
 
 The port is controlled by the `PORT` environment variable in `.env`. It defaults to `5000` if not set. On Codio, add `PORT=3000` to your `.env` file (or the `.codio` run command handles it directly via `--port=3000`).
 
+## Docker (Optional)
+
+Docker is **not required** for local development or Codio. The venv workflow above is all you need day-to-day.
+
+Docker is included for portability — it packages the app and its dependencies into a self-contained image that runs identically anywhere, without needing Python or a venv installed. It is also verified in CI on every push.
+
+**Build and run with Docker:**
+```bash
+docker build -t flask-app .
+docker run -p 5000:5000 flask-app
+```
+
+The app will be available at `http://localhost:5000`.
+
+> Note: The Docker image uses SQLite and a placeholder `SECRET_KEY=changeme`. Override these at runtime for any real deployment:
+> ```bash
+> docker run -p 5000:5000 -e SECRET_KEY=your-real-key flask-app
+> ```
+
 ## Running Tests
 
 ```bash
