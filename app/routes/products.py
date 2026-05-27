@@ -1,7 +1,7 @@
 # app/routes/products.py
 
 from flask import Blueprint, request, jsonify, current_app
-from flask_login import login_required
+from app.decorators import admin_required
 from app.models import db, Product
 
 products = Blueprint('products', __name__)
@@ -21,7 +21,7 @@ def get_products():
     } for p in all_products])
 
 @products.route('/products', methods=['POST'])
-@login_required
+@admin_required
 def create_product():
     data = request.get_json()
     if not data.get('name') or data.get('price', -1) < 0:
@@ -39,7 +39,7 @@ def create_product():
     return jsonify({'message': 'Product created'}), 201
 
 @products.route('/products/<int:id>', methods=['PUT'])
-@login_required
+@admin_required
 def update_product(id):
     product = Product.query.get_or_404(id)
     data = request.get_json()
@@ -51,7 +51,7 @@ def update_product(id):
     return jsonify({'message': 'Product updated'})
 
 @products.route('/products/<int:id>', methods=['DELETE'])
-@login_required
+@admin_required
 def delete_product(id):
     product = Product.query.get_or_404(id)
     db.session.delete(product)

@@ -2,6 +2,7 @@
 
 import logging
 
+import click
 from flask import Flask, render_template
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
@@ -33,10 +34,16 @@ def create_app(test_config=None):
     from .routes.auth import auth
     from .routes.products import products
     from .routes.main import main
+    from .routes.admin import admin
 
     app.register_blueprint(auth)
     app.register_blueprint(products)
     app.register_blueprint(main)
+    app.register_blueprint(admin)
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template('403.html'), 403
 
     @app.errorhandler(404)
     def not_found(e):
@@ -45,6 +52,26 @@ def create_app(test_config=None):
     @app.errorhandler(500)
     def server_error(e):
         return render_template('500.html'), 500
+
+    @app.cli.command('create-admin')
+    @click.argument('email')
+    @click.password_option()
+    def create_admin(email, password):
+        """Bootstrap an admin user. Creates the user if they don't exist, promotes if they do."""
+        with app.app_context():
+            from werkzeug.security import generate_password_hash
+            user = User.query.filter_by(email=email).first()
+            if user:
+                user.is_admin = True
+                db.session.commit()
+                click.echo(f'Promoted {email} to admin.')
+            else:
+                user = User(email=email,
+                            password_hash=generate_password_hash(password),
+                            is_admin=True)
+                db.session.add(user)
+                db.session.commit()
+                click.echo(f'Created admin user {email}.')
 
     with app.app_context():
         db.create_all()

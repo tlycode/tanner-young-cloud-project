@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{% if product %}Edit Product{% else %}Add Product{% endif %}{% endblock %}
+{% block content %}
+    <a href="{{ url_for('main.index') }}">&larr; Back to products</a>
+    <h1 style="margin-top: 1rem;">{% if product %}Edit Product{% else %}Add Product{% endif %}</h1>
+    <form method="POST"
+          action="{% if product %}{{ url_for('admin.edit_product', id=product.id) }}{% else %}{{ url_for('admin.new_product') }}{% endif %}"
+          style="max-width: 480px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="margin-bottom: 1rem;">
+            <label for="name">Name</label><br>
+            <input type="text" id="name" name="name" required
+                   value="{{ product.name if product else '' }}"
+                   style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label for="description">Description</label><br>
+            <textarea id="description" name="description"
+                      style="width: 100%; padding: 0.4rem; margin-top: 0.25rem; height: 80px;">{{ product.description if product and product.description else '' }}</textarea>
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label for="price">Price ($)</label><br>
+            <input type="number" id="price" name="price" step="0.01" min="0" required
+                   value="{{ '%.2f'|format(product.price) if product else '' }}"
+                   style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label for="stock">Stock</label><br>
+            <input type="number" id="stock" name="stock" min="0"
+                   value="{{ product.stock if product else 0 }}"
+                   style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+        </div>
+        <div style="margin-bottom: 1rem;">
+            <label for="image_url">Image URL</label><br>
+            <input type="url" id="image_url" name="image_url"
+                   value="{{ product.image_url if product and product.image_url else '' }}"
+                   style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+        </div>
+        <button type="submit">{% if product %}Save Changes{% else %}Add Product{% endif %}</button>
+        {% if product %}
+            <a href="{{ url_for('main.product_detail', id=product.id) }}"
+               style="margin-left: 1rem;">Cancel</a>
+        {% endif %}
+    </form>
+{% endblock %}

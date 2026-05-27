@@ -21,6 +21,9 @@
         <a href="{{ url_for('main.index') }}"><strong>Shop</strong></a>
         <span class="spacer"></span>
         {% if current_user.is_authenticated %}
+            {% if current_user.is_admin %}
+                <a href="{{ url_for('admin.users') }}">Admin</a>
+            {% endif %}
             <span>{{ current_user.email }}</span>
             <a href="{{ url_for('auth.logout') }}">Logout</a>
         {% else %}

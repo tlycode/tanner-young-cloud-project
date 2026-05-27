@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Admin — Users{% endblock %}
+{% block content %}
+    <h1>Users</h1>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">ID</th>
+                <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Email</th>
+                <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Admin</th>
+                <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td style="padding: 0.5rem;">{{ user.id }}</td>
+                <td style="padding: 0.5rem;">{{ user.email }}</td>
+                <td style="padding: 0.5rem;">{{ 'Yes' if user.is_admin else 'No' }}</td>
+                <td style="padding: 0.5rem;">
+                    {% if not user.is_admin %}
+                    <form method="POST" action="{{ url_for('admin.promote_user', id=user.id) }}" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit">Promote to Admin</button>
+                    </form>
+                    {% else %}
+                    <span style="color: #888;">Admin</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
