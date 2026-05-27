@@ -1,20 +1,16 @@
-# Use an official Python runtime as a parent image
-FROM python:3.8-slim
+FROM python:3.12-slim
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+COPY requirements-docker.txt .
+RUN pip install --no-cache-dir -r requirements-docker.txt
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
 
-# Make port 80 available to the world outside this container
-EXPOSE 80
+ENV FLASK_APP=run.py
+ENV DATABASE_URL=sqlite:///app.db
+ENV SECRET_KEY=changeme
 
-# Define environment variable
-ENV NAME World
+EXPOSE 5000
 
-# Run app.py when the container launches
-CMD ["python", "app.py"]
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]

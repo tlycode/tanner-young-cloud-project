@@ -1,3 +1,4 @@
+# Same as requirements.txt but omits psycopg2-binary (not needed for SQLite container)
 alembic==1.18.4
 blinker==1.9.0
 click==8.4.1
@@ -10,10 +11,8 @@ Jinja2==3.1.6
 Mako==1.3.12
 MarkupSafe==3.0.3
 pillow==12.2.0
-psycopg2-binary==2.9.12
 python-dotenv==1.2.2
 SQLAlchemy==2.0.50
 typing_extensions==4.15.0
 Werkzeug==3.1.8
-pytest
 flask-wtf
