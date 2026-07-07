@@ -28,7 +28,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Configure environment
-cp .env.example .env  # edit SECRET_KEY at minimum
+cp .env.example .env  # edit DATABASE_URL, SECRET_KEY
 
 # Run the development server
 flask run --debug
