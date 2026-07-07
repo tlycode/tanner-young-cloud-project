@@ -10,6 +10,21 @@
             </a>
         {% endif %}
     </div>
+    {% if all_tags %}
+        <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+            <span style="font-size: 0.85rem; color: #666;">Filter by tag:</span>
+            <a href="{{ url_for('main.index') }}"
+               style="font-size: 0.75rem; padding: 0.15rem 0.5rem; border: 1px solid {{ '#222' if not current_tag else '#aaa' }}; border-radius: 3px; text-decoration: none; color: {{ '#fff' if not current_tag else '#333' }}; background: {{ '#222' if not current_tag else 'none' }};">
+                All
+            </a>
+            {% for t in all_tags %}
+                <a href="{{ url_for('main.index', tag=t.name) }}"
+                   style="font-size: 0.75rem; padding: 0.15rem 0.5rem; border: 1px solid {{ '#222' if current_tag == t.name else '#aaa' }}; border-radius: 3px; text-decoration: none; color: {{ '#fff' if current_tag == t.name else '#333' }}; background: {{ '#222' if current_tag == t.name else 'none' }};">
+                    {{ t.name }}
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem;">
         {% for product in products %}
             <div style="border: 1px solid #ddd; border-radius: 6px; padding: 1rem;">
@@ -23,6 +38,16 @@
                 </h2>
                 <p style="margin: 0; color: #555;">${{ "%.2f"|format(product.price) }}</p>
                 <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #888;">{{ product.stock }} in stock</p>
+                {% if product.tags %}
+                    <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                        {% for t in product.tags %}
+                            <a href="{{ url_for('main.index', tag=t.name) }}"
+                               style="font-size: 0.75rem; padding: 0.15rem 0.5rem; border: 1px solid #aaa; border-radius: 3px; text-decoration: none; color: #333;">
+                                {{ t.name }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
                 {% if current_user.is_authenticated and current_user.is_admin %}
                     <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem;">
                         <a href="{{ url_for('admin.edit_product', id=product.id) }}"

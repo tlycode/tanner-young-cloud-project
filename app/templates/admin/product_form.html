@@ -2,6 +2,12 @@
 {% block title %}{% if product %}Edit Product{% else %}Add Product{% endif %}{% endblock %}
 {% block content %}
     <a href="{{ url_for('main.index') }}">&larr; Back to products</a>
+    {% if not product %}
+        <button type="button" onclick="document.getElementById('bulk-add-modal').style.display='flex'"
+                style="float: right; background: #222; color: #fff; border: none; border-radius: 4px; padding: 0.4rem 0.9rem; cursor: pointer;">
+            Add Bulk
+        </button>
+    {% endif %}
     <h1 style="margin-top: 1rem;">{% if product %}Edit Product{% else %}Add Product{% endif %}</h1>
     <form method="POST"
           action="{% if product %}{{ url_for('admin.edit_product', id=product.id) }}{% else %}{{ url_for('admin.new_product') }}{% endif %}"
@@ -36,10 +42,36 @@
                    value="{{ product.image_url if product and product.image_url else '' }}"
                    style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
         </div>
+        <div style="margin-bottom: 1rem;">
+            <label for="tags">Tags (comma-separated)</label><br>
+            <input type="text" id="tags" name="tags"
+                   value="{{ product.tags|map(attribute='name')|join(', ') if product else '' }}"
+                   placeholder="electronics, sale, new"
+                   style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+        </div>
         <button type="submit">{% if product %}Save Changes{% else %}Add Product{% endif %}</button>
         {% if product %}
             <a href="{{ url_for('main.product_detail', id=product.id) }}"
                style="margin-left: 1rem;">Cancel</a>
         {% endif %}
     </form>
+
+    {% if not product %}
+        <div id="bulk-add-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); align-items: center; justify-content: center;">
+            <div style="background: #fff; padding: 1.5rem; border-radius: 6px; width: 320px;">
+                <h2 style="margin-top: 0;">Bulk Add Products</h2>
+                <form method="POST" action="{{ url_for('admin.bulk_create_products') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div style="margin-bottom: 1rem;">
+                        <label for="bulk-count">Number of products</label><br>
+                        <input type="number" id="bulk-count" name="count" min="1" max="{{ 100 }}" value="5" required
+                               style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+                    </div>
+                    <button type="submit">Create</button>
+                    <button type="button" onclick="document.getElementById('bulk-add-modal').style.display='none'"
+                            style="margin-left: 0.5rem;">Cancel</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 {% endblock %}

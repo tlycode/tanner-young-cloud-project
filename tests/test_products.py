@@ -1,6 +1,6 @@
 # tests/test_products.py
 
-from app.models import db, Product
+from app.models import db, Product, Tag
 
 
 def test_get_products_empty(client):
@@ -80,3 +80,78 @@ def test_delete_product(logged_in_client, app):
         product_id = p.id
     response = logged_in_client.delete(f'/products/{product_id}')
     assert response.status_code == 200
+
+
+def test_get_products_includes_tags(client, app):
+    with app.app_context():
+        p = Product(name='Tagged', price=9.99, stock=5)
+        p.tags = [Tag(name='electronics'), Tag(name='sale')]
+        db.session.add(p)
+        db.session.commit()
+    response = client.get('/products')
+    data = response.get_json()
+    assert sorted(data[0]['tags']) == ['electronics', 'sale']
+
+
+def test_create_product_with_tags(logged_in_client, app):
+    response = logged_in_client.post('/products', json={
+        'name': 'New Item', 'price': 4.99, 'tags': ['sale', 'new'],
+    })
+    assert response.status_code == 201
+
+    with app.app_context():
+        product = Product.query.filter_by(name='New Item').first()
+        assert sorted(t.name for t in product.tags) == ['new', 'sale']
+
+
+def test_create_product_tag_reuse(logged_in_client, app):
+    logged_in_client.post('/products', json={'name': 'A', 'price': 1.0, 'tags': ['sale']})
+    logged_in_client.post('/products', json={'name': 'B', 'price': 1.0, 'tags': ['Sale']})
+
+    with app.app_context():
+        assert Tag.query.filter_by(name='sale').count() == 1
+
+
+def test_update_product_tags(logged_in_client, app):
+    with app.app_context():
+        p = Product(name='Widget', price=5.00, stock=1)
+        db.session.add(p)
+        db.session.commit()
+        product_id = p.id
+
+    response = logged_in_client.put(f'/products/{product_id}', json={'tags': ['clearance']})
+    assert response.status_code == 200
+
+    with app.app_context():
+        product = db.session.get(Product, product_id)
+        assert [t.name for t in product.tags] == ['clearance']
+
+
+def test_update_product_tags_empty_list_clears(logged_in_client, app):
+    with app.app_context():
+        p = Product(name='Widget', price=5.00, stock=1)
+        p.tags = [Tag(name='old')]
+        db.session.add(p)
+        db.session.commit()
+        product_id = p.id
+
+    logged_in_client.put(f'/products/{product_id}', json={'tags': []})
+
+    with app.app_context():
+        product = db.session.get(Product, product_id)
+        assert product.tags == []
+
+
+def test_update_product_without_tags_key_leaves_tags_unchanged(logged_in_client, app):
+    with app.app_context():
+        p = Product(name='Widget', price=5.00, stock=1)
+        p.tags = [Tag(name='keepme')]
+        db.session.add(p)
+        db.session.commit()
+        product_id = p.id
+
+    logged_in_client.put(f'/products/{product_id}', json={'name': 'New Name'})
+
+    with app.app_context():
+        product = db.session.get(Product, product_id)
+        assert [t.name for t in product.tags] == ['keepme']

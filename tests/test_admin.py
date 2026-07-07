@@ -1,7 +1,7 @@
 # tests/test_admin.py
 
 import pytest
-from app.models import db, Product, User
+from app.models import db, Product, Tag, User
 
 
 # --- Access control ---
@@ -61,6 +61,124 @@ def test_create_product_missing_name(logged_in_client):
         'stock': '0',
     })
     assert response.status_code == 400
+
+
+def test_bulk_create_products_requires_admin(client):
+    response = client.post('/admin/products/bulk', data={'count': '3'})
+    assert response.status_code == 403
+
+
+def test_bulk_create_products_blocked_for_regular_user(regular_client):
+    response = regular_client.post('/admin/products/bulk', data={'count': '3'})
+    assert response.status_code == 403
+
+
+def test_admin_can_bulk_create_products(logged_in_client, app):
+    with app.app_context():
+        before = Product.query.count()
+
+    response = logged_in_client.post('/admin/products/bulk', data={'count': '3'},
+                                     follow_redirects=True)
+    assert response.status_code == 200
+
+    with app.app_context():
+        assert Product.query.count() == before + 3
+        products = Product.query.order_by(Product.id.desc()).limit(3).all()
+        for p in products:
+            assert p.image_url
+
+
+def test_bulk_create_products_invalid_count(logged_in_client):
+    response = logged_in_client.post('/admin/products/bulk', data={'count': '0'})
+    assert response.status_code == 400
+
+
+def test_bulk_create_products_count_too_large(logged_in_client):
+    response = logged_in_client.post('/admin/products/bulk', data={'count': '9999'})
+    assert response.status_code == 400
+
+
+# --- Tags ---
+
+def test_new_product_with_tags_creates_tags(logged_in_client, app):
+    response = logged_in_client.post('/admin/products/new', data={
+        'name': 'Tagged Widget',
+        'price': '9.99',
+        'stock': '5',
+        'tags': 'electronics, sale',
+    }, follow_redirects=True)
+    assert response.status_code == 200
+
+    with app.app_context():
+        product = Product.query.filter_by(name='Tagged Widget').first()
+        assert sorted(t.name for t in product.tags) == ['electronics', 'sale']
+
+
+def test_new_product_tag_reuse_does_not_duplicate(logged_in_client, app):
+    logged_in_client.post('/admin/products/new', data={
+        'name': 'First', 'price': '1.00', 'stock': '0', 'tags': 'sale',
+    })
+    logged_in_client.post('/admin/products/new', data={
+        'name': 'Second', 'price': '1.00', 'stock': '0', 'tags': 'Sale',
+    })
+
+    with app.app_context():
+        assert Tag.query.filter_by(name='sale').count() == 1
+
+
+def test_new_product_empty_tags_field(logged_in_client, app):
+    response = logged_in_client.post('/admin/products/new', data={
+        'name': 'No Tags', 'price': '1.00', 'stock': '0', 'tags': '',
+    }, follow_redirects=True)
+    assert response.status_code == 200
+
+    with app.app_context():
+        product = Product.query.filter_by(name='No Tags').first()
+        assert product.tags == []
+
+
+def test_new_product_duplicate_tags_in_input(logged_in_client, app):
+    logged_in_client.post('/admin/products/new', data={
+        'name': 'Dupe Tags', 'price': '1.00', 'stock': '0', 'tags': 'sale, sale, SALE',
+    })
+
+    with app.app_context():
+        product = Product.query.filter_by(name='Dupe Tags').first()
+        assert [t.name for t in product.tags] == ['sale']
+
+
+def test_edit_product_updates_tags(logged_in_client, app):
+    with app.app_context():
+        p = Product(name='Editable', price=1.00, stock=1)
+        p.tags = [Tag(name='old')]
+        db.session.add(p)
+        db.session.commit()
+        product_id = p.id
+
+    logged_in_client.post(f'/admin/products/{product_id}/edit', data={
+        'name': 'Editable', 'price': '1.00', 'stock': '1', 'tags': 'new',
+    })
+
+    with app.app_context():
+        product = db.session.get(Product, product_id)
+        assert [t.name for t in product.tags] == ['new']
+
+
+def test_edit_product_clears_tags(logged_in_client, app):
+    with app.app_context():
+        p = Product(name='Clearable', price=1.00, stock=1)
+        p.tags = [Tag(name='keepme')]
+        db.session.add(p)
+        db.session.commit()
+        product_id = p.id
+
+    logged_in_client.post(f'/admin/products/{product_id}/edit', data={
+        'name': 'Clearable', 'price': '1.00', 'stock': '1', 'tags': '',
+    })
+
+    with app.app_context():
+        product = db.session.get(Product, product_id)
+        assert product.tags == []
 
 
 def test_admin_can_edit_product(logged_in_client, app):

@@ -12,6 +12,16 @@
         {% endif %}
         <p><strong>Price:</strong> ${{ "%.2f"|format(product.price) }}</p>
         <p><strong>In stock:</strong> {{ product.stock }}</p>
+        {% if product.tags %}
+            <div style="margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                {% for t in product.tags %}
+                    <a href="{{ url_for('main.index', tag=t.name) }}"
+                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; border: 1px solid #aaa; border-radius: 3px; text-decoration: none; color: #333;">
+                        {{ t.name }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
         {% if current_user.is_authenticated and current_user.is_admin %}
             <div style="margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center;">
                 <a href="{{ url_for('admin.edit_product', id=product.id) }}"

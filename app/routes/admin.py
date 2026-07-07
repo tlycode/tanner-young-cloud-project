@@ -3,8 +3,20 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, current_app
 from app.models import db, User, Product
 from app.decorators import admin_required
+from app.tag_utils import parse_tag_names, get_or_create_tags
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
+
+# Preset placeholder images used to fill in image_url for bulk-generated products.
+BULK_PRODUCT_IMAGES = [
+    'https://picsum.photos/seed/product1/400/400',
+    'https://picsum.photos/seed/product2/400/400',
+    'https://picsum.photos/seed/product3/400/400',
+    'https://picsum.photos/seed/product4/400/400',
+    'https://picsum.photos/seed/product5/400/400',
+]
+
+MAX_BULK_PRODUCTS = 100
 
 
 @admin.route('/users')
@@ -59,6 +71,7 @@ def new_product():
 
         product = Product(name=name, description=description or None,
                           price=price, stock=stock, image_url=image_url)
+        product.tags = get_or_create_tags(parse_tag_names(request.form.get('tags', '')))
         db.session.add(product)
         db.session.commit()
         current_app.logger.info(f"Product created via admin: {product.name}")
@@ -66,6 +79,30 @@ def new_product():
         return redirect(url_for('main.index'))
 
     return render_template('admin/product_form.html', product=None)
+
+
+@admin.route('/products/bulk', methods=['POST'])
+@admin_required
+def bulk_create_products():
+    count_str = request.form.get('count', '')
+    try:
+        count = int(count_str)
+        if count < 1 or count > MAX_BULK_PRODUCTS:
+            raise ValueError
+    except ValueError:
+        flash(f'Count must be a whole number between 1 and {MAX_BULK_PRODUCTS}.', 'error')
+        return render_template('admin/product_form.html', product=None), 400
+
+    existing = Product.query.count()
+    for i in range(count):
+        image_url = BULK_PRODUCT_IMAGES[(existing + i) % len(BULK_PRODUCT_IMAGES)]
+        product = Product(name=f'Bulk Product {existing + i + 1}',
+                          price=9.99, stock=0, image_url=image_url)
+        db.session.add(product)
+    db.session.commit()
+    current_app.logger.info(f"Bulk created {count} products via admin")
+    flash(f'{count} products added.', 'success')
+    return redirect(url_for('main.index'))
 
 
 @admin.route('/products/<int:id>/edit', methods=['GET', 'POST'])
@@ -107,6 +144,7 @@ def edit_product(id):
         product.price = price
         product.stock = stock
         product.image_url = image_url
+        product.tags = get_or_create_tags(parse_tag_names(request.form.get('tags', '')))
         db.session.commit()
         current_app.logger.info(f"Product updated via admin: id={id}")
         flash(f'"{product.name}" updated.', 'success')
