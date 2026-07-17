@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Your Cart{% endblock %}
+{% block content %}
+    <h1 style="margin-top: 0;">Your Cart</h1>
+
+    {% if items %}
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for item in items %}
+                <div style="display: flex; align-items: center; gap: 1rem; border: 1px solid #ddd; border-radius: 6px; padding: 1rem;">
+                    {% if item.product.image_url %}
+                        <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}"
+                             style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;">
+                    {% endif %}
+                    <div style="flex: 1;">
+                        <h2 style="font-size: 1rem; margin: 0 0 0.25rem;">
+                            <a href="{{ url_for('main.product_detail', id=item.product.id) }}" style="text-decoration: none; color: #222;">
+                                {{ item.product.name }}
+                            </a>
+                        </h2>
+                        <p style="margin: 0; color: #555; font-size: 0.9rem;">${{ "%.2f"|format(item.product.price) }} each</p>
+                    </div>
+                    <form method="POST" action="{{ url_for('cart.update_cart', product_id=item.product.id) }}"
+                          style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label for="qty-{{ item.product.id }}" style="font-size: 0.8rem; color: #666;">Qty</label>
+                        <input type="number" id="qty-{{ item.product.id }}" name="quantity" min="1"
+                               max="{{ item.product.stock }}" value="{{ item.quantity }}"
+                               style="width: 60px; padding: 0.3rem;">
+                        <button type="submit" style="padding: 0.3rem 0.6rem; border: 1px solid #aaa; border-radius: 4px; background: none; cursor: pointer;">
+                            Update
+                        </button>
+                    </form>
+                    <p style="width: 80px; text-align: right; margin: 0; font-weight: bold;">${{ "%.2f"|format(item.line_total) }}</p>
+                    <form method="POST" action="{{ url_for('cart.remove_from_cart', product_id=item.product.id) }}" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" style="padding: 0.3rem 0.6rem; border: 1px solid #c00; border-radius: 4px; background: none; color: #c00; cursor: pointer;">
+                            Remove
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 1.5rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+            <p style="font-size: 1.2rem; margin: 0;">Total: <strong>${{ "%.2f"|format(total) }}</strong></p>
+            <a href="{{ url_for('cart.checkout') }}"
+               style="padding: 0.6rem 1.2rem; background: #222; color: #fff; text-decoration: none; border-radius: 4px;">
+                Checkout
+            </a>
+        </div>
+    {% else %}
+        <p>Your cart is empty. <a href="{{ url_for('main.index') }}">Continue shopping</a>.</p>
+    {% endif %}
+{% endblock %}

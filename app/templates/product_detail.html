@@ -22,6 +22,17 @@
                 {% endfor %}
             </div>
         {% endif %}
+        <form method="POST" action="{{ url_for('cart.add_to_cart', product_id=product.id) }}"
+              style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="quantity" style="font-size: 0.85rem; color: #555;">Qty</label>
+            <input type="number" id="quantity" name="quantity" min="1" max="{{ product.stock }}" value="1"
+                   style="width: 60px; padding: 0.4rem;" {% if product.stock <= 0 %}disabled{% endif %}>
+            <button type="submit" {% if product.stock <= 0 %}disabled{% endif %}
+                    style="padding: 0.4rem 1rem; background: {{ '#ccc' if product.stock <= 0 else '#222' }}; color: #fff; border: none; border-radius: 4px; cursor: {{ 'not-allowed' if product.stock <= 0 else 'pointer' }};">
+                {{ 'Out of stock' if product.stock <= 0 else 'Add to Cart' }}
+            </button>
+        </form>
         {% if current_user.is_authenticated and current_user.is_admin %}
             <div style="margin-top: 1rem; display: flex; gap: 0.75rem; align-items: center;">
                 <a href="{{ url_for('admin.edit_product', id=product.id) }}"
