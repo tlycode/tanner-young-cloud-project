@@ -97,7 +97,7 @@ def bulk_create_products():
     for i in range(count):
         image_url = BULK_PRODUCT_IMAGES[(existing + i) % len(BULK_PRODUCT_IMAGES)]
         product = Product(name=f'Bulk Product {existing + i + 1}',
-                          price=9.99, stock=0, image_url=image_url)
+                          price=9.99, stock=99, image_url=image_url)
         db.session.add(product)
     db.session.commit()
     current_app.logger.info(f"Bulk created {count} products via admin")

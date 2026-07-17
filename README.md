@@ -96,6 +96,39 @@ The app will be available at `http://localhost:5000`.
 > docker run -p 5000:5000 -e SECRET_KEY=your-real-key flask-app
 > ```
 
+## Admin Setup
+
+Admin-only pages (`/admin/users`, product management) are gated behind `is_admin` on the `User` model. Regular registration (`/register`) never sets this flag, and promoting a user to admin from the UI (`/admin/users`) itself requires being logged in as an admin — so on a fresh database with zero admins, you must bootstrap the first one from the command line.
+
+**Bootstrap the first admin:**
+
+```bash
+flask create-admin <email>
+```
+
+You'll be prompted to enter (and confirm) a password. This command is idempotent and safe to re-run:
+- If no user with that email exists, it creates one with `is_admin=True`.
+- If a user with that email already exists, it promotes them to admin (password is left unchanged).
+
+Example:
+```bash
+flask create-admin admin@example.com
+```
+
+Once the first admin exists, log in as that user and use **Manage Users** (`/admin/users`) to promote any other account — no further CLI use is needed.
+
+> On Codio, run this command in the terminal after `pip install -r requirements.txt` and before (or after) starting the server, with the venv activated.
+
+## Bulk Product Creation (Testing)
+
+For seeding test data, admins can generate placeholder products in bulk instead of adding them one at a time:
+
+1. Log in as an admin and go to **Add Product** (`/admin/products/new`).
+2. Click **Bulk Add** to open the bulk-add modal.
+3. Enter a count (1–100) and submit.
+
+This creates that many `Bulk Product N` entries (`$9.99`, 99 stock, cycling through a set of placeholder images) via `POST /admin/products/bulk` (`app/routes/admin.py:84`). Useful for populating the catalog to test pagination, tag filtering, checkout/cart flows, or listing performance without hand-entering products.
+
 ## Running Tests
 
 ```bash
@@ -151,6 +184,9 @@ This creates an audit trail for detecting abuse or debugging incidents.
 **Authentication & Authorization**
 All product write operations (POST, PUT, DELETE) require an authenticated session via `@login_required`. Unauthenticated requests are redirected to the login page rather than receiving a 401, which is appropriate for a browser-facing app.
 
+**Role-Based Access Control**
+The `User` model has an `is_admin` field enforced via the `@admin_required` decorator (`app/decorators.py`), gating product management and the `/admin/users` panel to admins only. See [Admin Setup](#admin-setup) above for bootstrapping the first admin account.
+
 ---
 
 ### Not Implemented (and Why)
@@ -163,9 +199,6 @@ CORS headers are only relevant when a browser-based frontend on a different orig
 
 **HTTPS**
 TLS termination is an infrastructure concern, not an application concern. In production, HTTPS would be configured at the web server (nginx) or handled automatically by the hosting platform (Heroku, Render, Railway). Hardcoding HTTPS redirects in Flask application code is fragile and unnecessary when the deployment environment handles it correctly.
-
-**Role-Based Access Control**
-The `User` model has an `is_admin` field, but it is not yet enforced. Currently any authenticated user can call the product write API. A production version would gate POST/PUT/DELETE behind an admin check. This was deferred because the course project does not yet have an admin management workflow.
 
 **Session Timeout**
 Flask-Login sessions persist until the browser is closed (session cookies). Explicit server-side session expiry (e.g., 30-minute idle timeout) was not configured. For a course project handling no real user data, the risk is low. Production apps handling sensitive data should set `PERMANENT_SESSION_LIFETIME` and call `login_manager.refresh_view` for re-authentication.
