@@ -35,11 +35,17 @@ def create_app(test_config=None):
     from .routes.products import products
     from .routes.main import main
     from .routes.admin import admin
+    from .routes.cart import cart, get_cart_count
 
     app.register_blueprint(auth)
     app.register_blueprint(products)
     app.register_blueprint(main)
     app.register_blueprint(admin)
+    app.register_blueprint(cart)
+
+    @app.context_processor
+    def inject_cart_count():
+        return {'cart_count': get_cart_count()}
 
     @app.errorhandler(403)
     def forbidden(e):

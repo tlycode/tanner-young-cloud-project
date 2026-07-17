@@ -14,12 +14,25 @@
         .flash { padding: 0.5rem 1rem; margin-bottom: 1rem; border-radius: 4px; }
         .flash.error { background: #fee; color: #c00; }
         .flash.success { background: #efe; color: #060; }
+        .cart-link { position: relative; display: inline-flex; align-items: center; text-decoration: none; color: #333; font-size: 1.3rem; line-height: 1; }
+        .cart-badge {
+            position: absolute; top: -8px; right: -10px;
+            background: #c00; color: #fff; border-radius: 999px;
+            font-size: 0.65rem; font-weight: bold; line-height: 1;
+            padding: 0.2rem 0.4rem; min-width: 1.1rem; text-align: center;
+        }
     </style>
 </head>
 <body>
     <nav>
         <a href="{{ url_for('main.index') }}"><strong>Shop</strong></a>
         <span class="spacer"></span>
+        <a href="{{ url_for('cart.view_cart') }}" class="cart-link" aria-label="Cart">
+            &#128722;
+            {% if cart_count %}
+                <span class="cart-badge">{{ cart_count }}</span>
+            {% endif %}
+        </a>
         {% if current_user.is_authenticated %}
             {% if current_user.is_admin %}
                 <a href="{{ url_for('admin.users') }}">Admin</a>

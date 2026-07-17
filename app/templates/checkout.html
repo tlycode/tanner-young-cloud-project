@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Checkout{% endblock %}
+{% block content %}
+    <a href="{{ url_for('cart.view_cart') }}">&larr; Back to cart</a>
+    <h1 style="margin-top: 1rem;">Checkout</h1>
+
+    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <form method="POST" action="{{ url_for('cart.place_order') }}" style="flex: 1; min-width: 280px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <h2 style="font-size: 1rem;">Shipping Address</h2>
+            <div style="margin-bottom: 1rem;">
+                <label for="full_name">Full Name</label><br>
+                <input type="text" id="full_name" name="full_name" required
+                       style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label for="address">Address</label><br>
+                <input type="text" id="address" name="address" required
+                       style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+            </div>
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+                <div style="flex: 2;">
+                    <label for="city">City</label><br>
+                    <input type="text" id="city" name="city" required
+                           style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+                </div>
+                <div style="flex: 1;">
+                    <label for="zip">ZIP</label><br>
+                    <input type="text" id="zip" name="zip" required
+                           style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+                </div>
+            </div>
+
+            <h2 style="font-size: 1rem;">Payment</h2>
+            <p style="font-size: 0.8rem; color: #888; margin-top: -0.5rem;">
+                This is a class project demo — no real payment is processed.
+            </p>
+            <div style="margin-bottom: 1rem;">
+                <label for="card_number">Card Number</label><br>
+                <input type="text" id="card_number" name="card_number" placeholder="4242 4242 4242 4242"
+                       inputmode="numeric" maxlength="19" required
+                       style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+            </div>
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <div style="flex: 1;">
+                    <label for="card_expiry">Expiry</label><br>
+                    <input type="text" id="card_expiry" name="card_expiry" placeholder="MM/YY" required
+                           style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+                </div>
+                <div style="flex: 1;">
+                    <label for="card_cvc">CVC</label><br>
+                    <input type="text" id="card_cvc" name="card_cvc" placeholder="123" required
+                           style="width: 100%; padding: 0.4rem; margin-top: 0.25rem;">
+                </div>
+            </div>
+
+            <button type="submit" style="width: 100%; padding: 0.7rem; background: #222; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer;">
+                Place Order (${{ "%.2f"|format(total) }})
+            </button>
+        </form>
+
+        <div style="flex: 1; min-width: 240px; border: 1px solid #ddd; border-radius: 6px; padding: 1rem; align-self: flex-start;">
+            <h2 style="font-size: 1rem; margin-top: 0;">Order Summary</h2>
+            {% for item in items %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                    <span>{{ item.product.name }} &times; {{ item.quantity }}</span>
+                    <span>${{ "%.2f"|format(item.line_total) }}</span>
+                </div>
+            {% endfor %}
+            <div style="display: flex; justify-content: space-between; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #ddd; font-weight: bold;">
+                <span>Total</span>
+                <span>${{ "%.2f"|format(total) }}</span>
+            </div>
+        </div>
+    </div>
+{% endblock %}
