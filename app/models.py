@@ -53,3 +53,24 @@ class Product(db.Model):
                            backref=db.backref('products', lazy='dynamic'),
                            lazy='joined')
 
+
+class Review(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id', ondelete='CASCADE'), nullable=False)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+
+    rating = db.Column(db.Integer, nullable=False)
+
+    body = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    product = db.relationship('Product', backref=db.backref('reviews', lazy='dynamic', cascade='all, delete-orphan'))
+
+    user = db.relationship('User')
+
+    __table_args__ = (db.UniqueConstraint('product_id', 'user_id', name='uq_review_product_user'),)
+
