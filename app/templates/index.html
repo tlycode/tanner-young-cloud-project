@@ -38,6 +38,14 @@
                 </h2>
                 <p style="margin: 0; color: #555;">${{ "%.2f"|format(product.price) }}</p>
                 <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #888;">{{ product.stock }} in stock</p>
+                {% set product_reviews = product.reviews.all() %}
+                {% if product_reviews %}
+                    {% set avg = (product_reviews|sum(attribute='rating')) / product_reviews|length %}
+                    <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #e8a300; letter-spacing: 1px;">
+                        {% for i in range(1, 6) %}{{ '★' if i <= avg + 0.5 else '☆' }}{% endfor %}
+                        <span style="color: #888; letter-spacing: normal;">({{ product_reviews|length }})</span>
+                    </p>
+                {% endif %}
                 {% if product.tags %}
                     <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem;">
                         {% for t in product.tags %}

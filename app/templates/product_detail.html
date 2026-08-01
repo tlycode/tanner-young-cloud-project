@@ -49,5 +49,73 @@
                 </form>
             </div>
         {% endif %}
+
+        <div style="margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 1.5rem;">
+            <h2 style="font-size: 1.2rem; margin: 0 0 0.5rem;">Reviews</h2>
+            {% if avg_rating %}
+                <p style="margin: 0 0 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="color: #e8a300; font-size: 1.3rem; letter-spacing: 1px;">
+                        {% for i in range(1, 6) %}{{ '★' if i <= avg_rating + 0.5 else '☆' }}{% endfor %}
+                    </span>
+                    <span style="color: #555;">{{ "%.1f"|format(avg_rating) }} ({{ reviews|length }} review{{ 's' if reviews|length != 1 }})</span>
+                </p>
+            {% else %}
+                <p style="color: #888; margin: 0 0 1rem;">No reviews yet.</p>
+            {% endif %}
+
+            {% for review in reviews %}
+                <div style="border: 1px solid #eee; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <span style="color: #e8a300; letter-spacing: 1px;">
+                            {% for i in range(1, 6) %}{{ '★' if i <= review.rating else '☆' }}{% endfor %}
+                        </span>
+                        <span style="font-size: 0.75rem; color: #999;">{{ review.created_at.strftime('%b %-d, %Y') }}</span>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #666; margin: 0.25rem 0 0;">{{ review.user.email }}</p>
+                    {% if review.body %}
+                        <p style="margin: 0.4rem 0 0;">{{ review.body }}</p>
+                    {% endif %}
+                    {% if current_user.is_authenticated and (review.user_id == current_user.id or current_user.is_admin) %}
+                        <form method="POST" action="{{ url_for('reviews.delete_review', id=review.id) }}"
+                              onsubmit="return confirm('Delete this review?');" style="margin: 0.5rem 0 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit"
+                                    style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border: 1px solid #c00; border-radius: 3px; background: none; color: #c00; cursor: pointer;">
+                                Delete
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            {% if current_user.is_authenticated %}
+                <div style="margin-top: 1rem;">
+                    <h3 style="font-size: 1rem; margin: 0 0 0.5rem;">
+                        {{ 'Update your review' if user_review else 'Leave a review' }}
+                    </h3>
+                    <form method="POST"
+                          action="{{ url_for('reviews.edit_review', id=user_review.id) if user_review else url_for('reviews.create_review', product_id=product.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="star-rating-input">
+                            {% for i in range(5, 0, -1) %}
+                                <input type="radio" name="rating" id="rating-{{ i }}" value="{{ i }}"
+                                       {% if user_review and user_review.rating == i %}checked{% endif %}>
+                                <label for="rating-{{ i }}" aria-label="{{ i }} star{{ 's' if i != 1 }}">★</label>
+                            {% endfor %}
+                        </div>
+                        <textarea name="body" rows="3" placeholder="Share your thoughts (optional)"
+                                  style="display: block; width: 100%; max-width: 400px; margin-top: 0.5rem; padding: 0.5rem; font-family: inherit;">{{ user_review.body if user_review else '' }}</textarea>
+                        <button type="submit"
+                                style="margin-top: 0.5rem; padding: 0.4rem 1rem; background: #222; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+                            {{ 'Update review' if user_review else 'Submit review' }}
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                    <a href="{{ url_for('auth.login') }}">Log in</a> to leave a review.
+                </p>
+            {% endif %}
+        </div>
     </div>
 {% endblock %}
