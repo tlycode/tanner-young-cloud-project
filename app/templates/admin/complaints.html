@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Admin — Complaints{% endblock %}
+{% block content %}
+    <h1>Complaints</h1>
+
+    <form method="GET" action="{{ url_for('admin.order_lookup') }}" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem;">
+        <label for="order_id" style="font-size: 0.9rem; color: #555;">Look up order by ID</label>
+        <input type="number" id="order_id" name="order_id" min="1" style="width: 100px; padding: 0.35rem;">
+        <button type="submit" style="padding: 0.35rem 0.75rem; border: 1px solid #aaa; border-radius: 4px; background: none; cursor: pointer;">
+            View
+        </button>
+    </form>
+
+    {% if complaints %}
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Order</th>
+                    <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Customer</th>
+                    <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Message</th>
+                    <th style="text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd;">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for complaint in complaints %}
+                <tr>
+                    <td style="padding: 0.5rem; vertical-align: top;">
+                        <a href="{{ url_for('admin.order_detail', id=complaint.order_id) }}">#{{ complaint.order_id }}</a>
+                    </td>
+                    <td style="padding: 0.5rem; vertical-align: top;">{{ complaint.user.email }}</td>
+                    <td style="padding: 0.5rem; vertical-align: top;">{{ complaint.message }}</td>
+                    <td style="padding: 0.5rem; vertical-align: top; white-space: nowrap; color: #888; font-size: 0.85rem;">
+                        {{ complaint.created_at.strftime('%b %-d, %Y') }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="color: #888;">No complaints have been submitted.</p>
+    {% endif %}
+{% endblock %}

@@ -1,7 +1,8 @@
 # app/routes/cart.py
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app
-from app.models import db, Product
+from flask_login import login_required, current_user
+from app.models import db, Product, Order, OrderItem
 
 cart = Blueprint('cart', __name__, url_prefix='/cart')
 
@@ -84,6 +85,7 @@ def remove_from_cart(product_id):
 
 
 @cart.route('/checkout', methods=['GET'])
+@login_required
 def checkout():
     items, total = get_cart_items()
     if not items:
@@ -93,17 +95,38 @@ def checkout():
 
 
 @cart.route('/checkout', methods=['POST'])
+@login_required
 def place_order():
     items, total = get_cart_items()
     if not items:
         flash('Your cart is empty.', 'error')
         return redirect(url_for('cart.view_cart'))
 
+    full_name = request.form.get('full_name', '').strip()
+    address = request.form.get('address', '').strip()
+    city = request.form.get('city', '').strip()
+    zip_code = request.form.get('zip', '').strip()
+
+    if not full_name or not address or not city or not zip_code:
+        flash('Please fill in your shipping address.', 'error')
+        return redirect(url_for('cart.checkout'))
+
     # Mocked payment processing - no real charge is made.
-    order_number = f"MOCK-{abs(hash(frozenset(session.get(SESSION_KEY, {}).items()))) % 1000000:06d}"
-    current_app.logger.info(f"Mock order placed: {order_number} total=${total:.2f}")
+    order = Order(user_id=current_user.id, total=total, full_name=full_name,
+                  address=address, city=city, zip_code=zip_code)
+    for item in items:
+        order.items.append(OrderItem(
+            product_id=item['product'].id,
+            product_name=item['product'].name,
+            unit_price=item['product'].price,
+            quantity=item['quantity'],
+        ))
+    db.session.add(order)
+    db.session.commit()
+
+    current_app.logger.info(f"Order placed: id={order.id} user_id={current_user.id} total=${total:.2f}")
 
     session[SESSION_KEY] = {}
     session.modified = True
 
-    return render_template('order_confirmation.html', order_number=order_number, total=total)
+    return render_template('order_confirmation.html', order=order)

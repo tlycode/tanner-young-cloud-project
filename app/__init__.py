@@ -37,6 +37,7 @@ def create_app(test_config=None):
     from .routes.admin import admin
     from .routes.cart import cart, get_cart_count
     from .routes.reviews import reviews
+    from .routes.orders import orders
 
     app.register_blueprint(auth)
     app.register_blueprint(products)
@@ -44,6 +45,7 @@ def create_app(test_config=None):
     app.register_blueprint(admin)
     app.register_blueprint(cart)
     app.register_blueprint(reviews)
+    app.register_blueprint(orders)
 
     @app.context_processor
     def inject_cart_count():

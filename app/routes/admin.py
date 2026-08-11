@@ -1,7 +1,7 @@
 # app/routes/admin.py
 
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, current_app
-from app.models import db, User, Product
+from app.models import db, User, Product, Order, Complaint
 from app.decorators import admin_required
 from app.tag_utils import parse_tag_names, get_or_create_tags
 
@@ -165,3 +165,29 @@ def delete_product(id):
     current_app.logger.info(f"Product deleted via admin: id={id}")
     flash(f'"{name}" deleted.', 'success')
     return redirect(url_for('main.index'))
+
+
+@admin.route('/orders/lookup', methods=['GET'])
+@admin_required
+def order_lookup():
+    order_id = request.args.get('order_id', type=int)
+    if order_id is None:
+        flash('Please enter a numeric order ID.', 'error')
+        return redirect(url_for('admin.users'))
+    return redirect(url_for('admin.order_detail', id=order_id))
+
+
+@admin.route('/orders/<int:id>')
+@admin_required
+def order_detail(id):
+    order = db.session.get(Order, id)
+    if order is None:
+        abort(404)
+    return render_template('order_detail.html', order=order)
+
+
+@admin.route('/complaints')
+@admin_required
+def complaints():
+    all_complaints = Complaint.query.order_by(Complaint.created_at.desc()).all()
+    return render_template('admin/complaints.html', complaints=all_complaints)

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }}{% endblock %}
+{% block content %}
+    {% if current_user.is_admin and order.user_id != current_user.id %}
+        <a href="{{ url_for('admin.complaints') }}">&larr; Back to complaints</a>
+    {% else %}
+        <a href="{{ url_for('orders.my_orders') }}">&larr; Back to orders</a>
+    {% endif %}
+
+    <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+        <h1 style="margin: 0;">Order #{{ order.id }}</h1>
+        {% if order.status == 'return_requested' %}
+            <span style="font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 3px; background: #fee; color: #c00;">
+                Return Requested
+            </span>
+        {% endif %}
+    </div>
+    <p style="color: #888; font-size: 0.9rem;">Placed on {{ order.created_at.strftime('%b %-d, %Y') }}</p>
+
+    {% if current_user.is_admin and order.user_id != current_user.id %}
+        <p style="font-size: 0.85rem; color: #666; background: #eef; padding: 0.5rem 0.75rem; border-radius: 4px;">
+            Viewing as admin &middot; Customer: {{ order.user.email }}
+        </p>
+    {% endif %}
+
+    <div style="display: flex; gap: 2rem; flex-wrap: wrap; margin-top: 1.5rem;">
+        <div style="flex: 2; min-width: 280px;">
+            <h2 style="font-size: 1rem;">Items</h2>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for item in order.items %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; border-radius: 6px; padding: 0.75rem 1rem;">
+                        <div>
+                            {% if item.product %}
+                                <a href="{{ url_for('main.product_detail', id=item.product.id) }}" style="text-decoration: none; color: #222; font-weight: bold;">
+                                    {{ item.product_name }}
+                                </a>
+                            {% else %}
+                                <span style="font-weight: bold;">{{ item.product_name }}</span>
+                                <span style="font-size: 0.75rem; color: #999;"> (no longer available)</span>
+                            {% endif %}
+                            <p style="margin: 0.2rem 0 0; font-size: 0.85rem; color: #555;">
+                                {{ item.quantity }} &times; ${{ "%.2f"|format(item.unit_price) }}
+                            </p>
+                        </div>
+                        <span style="font-weight: bold;">${{ "%.2f"|format(item.unit_price * item.quantity) }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #ddd; font-weight: bold;">
+                <span>Total</span>
+                <span>${{ "%.2f"|format(order.total) }}</span>
+            </div>
+        </div>
+
+        <div style="flex: 1; min-width: 240px;">
+            <h2 style="font-size: 1rem;">Shipped To</h2>
+            <p style="font-size: 0.9rem; color: #333; line-height: 1.5;">
+                {{ order.full_name }}<br>
+                {{ order.address }}<br>
+                {{ order.city }}, {{ order.zip_code }}
+            </p>
+
+            {% if not (current_user.is_admin and order.user_id != current_user.id) %}
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem;">
+                    <form method="POST" action="{{ url_for('orders.buy_again', id=order.id) }}" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" style="width: 100%; padding: 0.6rem; background: #222; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+                            Buy Again
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('orders.return_order', id=order.id) }}" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" {% if order.status == 'return_requested' %}disabled{% endif %}
+                                style="width: 100%; padding: 0.6rem; border: 1px solid {{ '#ccc' if order.status == 'return_requested' else '#aaa' }}; border-radius: 4px; background: none; color: {{ '#aaa' if order.status == 'return_requested' else '#333' }}; cursor: {{ 'not-allowed' if order.status == 'return_requested' else 'pointer' }};">
+                            {{ 'Return Requested' if order.status == 'return_requested' else 'Return' }}
+                        </button>
+                    </form>
+                </div>
+
+                <div style="margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1rem;">
+                    <h2 style="font-size: 1rem; margin: 0 0 0.5rem;">Have an issue with this order?</h2>
+                    <form method="POST" action="{{ url_for('orders.submit_complaint', id=order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <textarea name="message" rows="3" placeholder="Describe the issue..." required
+                                  style="display: block; width: 100%; padding: 0.5rem; font-family: inherit; box-sizing: border-box;"></textarea>
+                        <button type="submit"
+                                style="margin-top: 0.5rem; padding: 0.4rem 1rem; border: 1px solid #aaa; border-radius: 4px; background: none; cursor: pointer;">
+                            Submit Complaint
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
