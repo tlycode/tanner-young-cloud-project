@@ -74,3 +74,62 @@ class Review(db.Model):
 
     __table_args__ = (db.UniqueConstraint('product_id', 'user_id', name='uq_review_product_user'),)
 
+
+class Order(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+
+    status = db.Column(db.String(20), nullable=False, default='placed')
+
+    total = db.Column(db.Float, nullable=False)
+
+    full_name = db.Column(db.String(200), nullable=False)
+
+    address = db.Column(db.String(200), nullable=False)
+
+    city = db.Column(db.String(100), nullable=False)
+
+    zip_code = db.Column(db.String(20), nullable=False)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User')
+
+    items = db.relationship('OrderItem', backref='order', cascade='all, delete-orphan', lazy='joined')
+
+
+class OrderItem(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id', ondelete='CASCADE'), nullable=False)
+
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id', ondelete='SET NULL'), nullable=True)
+
+    product_name = db.Column(db.String(200), nullable=False)
+
+    unit_price = db.Column(db.Float, nullable=False)
+
+    quantity = db.Column(db.Integer, nullable=False)
+
+    product = db.relationship('Product')
+
+
+class Complaint(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id', ondelete='CASCADE'), nullable=False)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+
+    message = db.Column(db.Text, nullable=False)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    order = db.relationship('Order', backref=db.backref('complaints', lazy='dynamic', cascade='all, delete-orphan'))
+
+    user = db.relationship('User')
+
