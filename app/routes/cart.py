@@ -1,10 +1,13 @@
 # app/routes/cart.py
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash, session, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, flash, session
 from flask_login import login_required, current_user
+from app.logger import get_logger
 from app.models import db, Product, Order, OrderItem
 
 cart = Blueprint('cart', __name__, url_prefix='/cart')
+
+log = get_logger(__name__)
 
 SESSION_KEY = 'cart'
 
@@ -33,6 +36,10 @@ def get_cart_items():
         total += line_total
         items.append({'product': product, 'quantity': quantity, 'line_total': line_total})
     if stale_ids:
+        # Items silently disappearing from a cart is confusing for the
+        # shopper, so make it visible even though we recover from it.
+        log.warn('Dropped cart items for products that no longer exist',
+                 product_ids=','.join(stale_ids))
         for product_id in stale_ids:
             cart_dict.pop(product_id, None)
         session.modified = True
@@ -56,7 +63,8 @@ def add_to_cart(product_id):
     cart_dict[key] = cart_dict.get(key, 0) + quantity
     session.modified = True
 
-    current_app.logger.info(f"Added to cart: product_id={product_id} quantity={quantity}")
+    log.info('Added to cart', product_id=product_id, quantity=quantity,
+             cart_quantity=cart_dict[key])
     flash(f'Added "{product.name}" to your cart.', 'success')
     return redirect(request.referrer or url_for('main.index'))
 
@@ -89,8 +97,11 @@ def remove_from_cart(product_id):
 def checkout():
     items, total = get_cart_items()
     if not items:
+        log.notice('Checkout blocked: cart is empty', user_id=current_user.id)
         flash('Your cart is empty.', 'error')
         return redirect(url_for('cart.view_cart'))
+    log.info('Checkout started', user_id=current_user.id,
+             items=len(items), total=f'{total:.2f}')
     return render_template('checkout.html', items=items, total=total)
 
 
@@ -99,6 +110,10 @@ def checkout():
 def place_order():
     items, total = get_cart_items()
     if not items:
+        # Submitting an order that vanished mid-checkout - the shopper
+        # thinks they bought something and did not.
+        log.error('Order failed: cart was empty at submission',
+                  user_id=current_user.id)
         flash('Your cart is empty.', 'error')
         return redirect(url_for('cart.view_cart'))
 
@@ -107,7 +122,11 @@ def place_order():
     city = request.form.get('city', '').strip()
     zip_code = request.form.get('zip', '').strip()
 
-    if not full_name or not address or not city or not zip_code:
+    missing = [name for name, value in (('full_name', full_name), ('address', address),
+                                       ('city', city), ('zip', zip_code)) if not value]
+    if missing:
+        log.info('Order rejected: incomplete shipping address',
+                 user_id=current_user.id, missing=','.join(missing))
         flash('Please fill in your shipping address.', 'error')
         return redirect(url_for('cart.checkout'))
 
@@ -121,10 +140,22 @@ def place_order():
             unit_price=item['product'].price,
             quantity=item['quantity'],
         ))
-    db.session.add(order)
-    db.session.commit()
+    try:
+        db.session.add(order)
+        db.session.commit()
+    except Exception:
+        # The worst failure in the app: the shopper submitted an order and
+        # has no idea whether they were charged. Keep the cart intact.
+        db.session.rollback()
+        log.exception('Order failed: could not save order',
+                      user_id=current_user.id, total=f'{total:.2f}',
+                      items=len(items))
+        flash('Something went wrong placing your order. '
+              'You have not been charged - please try again.', 'error')
+        return redirect(url_for('cart.checkout'))
 
-    current_app.logger.info(f"Order placed: id={order.id} user_id={current_user.id} total=${total:.2f}")
+    log.info('Order placed', order_id=order.id, user_id=current_user.id,
+             items=len(items), total=f'{total:.2f}')
 
     session[SESSION_KEY] = {}
     session.modified = True

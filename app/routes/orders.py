@@ -1,11 +1,14 @@
 # app/routes/orders.py
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, current_app, session
+from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, session
 from flask_login import login_required, current_user
+from app.logger import get_logger
 from app.models import db, Order, Complaint
 from app.routes.cart import _get_cart_dict
 
 orders = Blueprint('orders', __name__, url_prefix='/orders')
+
+log = get_logger(__name__)
 
 
 def _get_order_or_404(id):
@@ -17,6 +20,9 @@ def _get_order_or_404(id):
 
 def _check_order_access(order):
     if order.user_id != current_user.id and not current_user.is_admin:
+        log.warn('Blocked access to another user\'s order',
+                 order_id=order.id, user_id=current_user.id,
+                 owner_id=order.user_id)
         abort(403)
 
 
@@ -52,8 +58,13 @@ def buy_again(id):
     session.modified = True
 
     if added:
+        log.info('Buy again: items added to cart', order_id=order.id,
+                 user_id=current_user.id, items=added)
         flash('Items from this order were added to your cart.', 'success')
     else:
+        # Dead end - the shopper asked to reorder and got nothing.
+        log.error('Buy again failed: no products from the order still exist',
+                  order_id=order.id, user_id=current_user.id)
         flash('None of the products from this order are available anymore.', 'error')
     return redirect(url_for('cart.view_cart'))
 
@@ -65,11 +76,20 @@ def return_order(id):
     _check_order_access(order)
 
     if order.status == 'return_requested':
+        log.notice('Duplicate return request', order_id=order.id,
+                   user_id=current_user.id)
         flash('A return has already been requested for this order.', 'error')
     else:
-        order.status = 'return_requested'
-        db.session.commit()
-        current_app.logger.info(f"Return requested: order_id={order.id}")
+        try:
+            order.status = 'return_requested'
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            log.exception('Return request failed', order_id=order.id,
+                          user_id=current_user.id)
+            flash('Something went wrong submitting your return. Please try again.', 'error')
+            return redirect(url_for('orders.order_detail', id=order.id))
+        log.info('Return requested', order_id=order.id, user_id=current_user.id)
         flash('Your return request has been submitted.', 'success')
     return redirect(url_for('orders.order_detail', id=order.id))
 
@@ -82,13 +102,25 @@ def submit_complaint(id):
 
     message = request.form.get('message', '').strip()
     if not message:
+        log.info('Complaint rejected: empty message', order_id=order.id,
+                 user_id=current_user.id)
         flash('Please describe your complaint before submitting.', 'error')
         return redirect(url_for('orders.order_detail', id=order.id))
 
     complaint = Complaint(order_id=order.id, user_id=order.user_id, message=message)
-    db.session.add(complaint)
-    db.session.commit()
+    try:
+        db.session.add(complaint)
+        db.session.commit()
+    except Exception:
+        # Losing a complaint means an unhappy shopper goes unheard.
+        db.session.rollback()
+        log.exception('Complaint submission failed', order_id=order.id,
+                      user_id=order.user_id)
+        flash('Something went wrong submitting your complaint. Please try again.', 'error')
+        return redirect(url_for('orders.order_detail', id=order.id))
 
-    current_app.logger.info(f"Complaint submitted: order_id={order.id} user_id={order.user_id}")
+    # A complaint is a signal worth seeing without turning on INFO.
+    log.notice('Complaint submitted', complaint_id=complaint.id,
+               order_id=order.id, user_id=order.user_id)
     flash('Your complaint has been submitted.', 'success')
     return redirect(url_for('orders.order_detail', id=order.id))
