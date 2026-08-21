@@ -12,5 +12,7 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     WTF_CSRF_ENABLED = True
