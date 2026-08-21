@@ -1,12 +1,11 @@
 # app/__init__.py
 
-import logging
-
 import click
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from config import Config
+from .logger import configure as configure_logging, get_logger
 from .models import db, User
 
 login_manager = LoginManager()
@@ -29,7 +28,11 @@ def create_app(test_config=None):
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'error'
 
-    app.logger.setLevel(logging.INFO)
+    # This package is named 'app', so Flask's own app.logger is the very
+    # same logger configure() sets up — framework messages land in the
+    # terminal with the shared format and level.
+    configure_logging(app.config.get('LOG_LEVEL'))
+    log = get_logger(__name__)
 
     from .routes.auth import auth
     from .routes.products import products
@@ -53,14 +56,19 @@ def create_app(test_config=None):
 
     @app.errorhandler(403)
     def forbidden(e):
+        log.notice('Forbidden', path=request.path, method=request.method)
         return render_template('403.html'), 403
 
     @app.errorhandler(404)
     def not_found(e):
+        log.info('Not found', path=request.path, method=request.method)
         return render_template('404.html'), 404
 
     @app.errorhandler(500)
     def server_error(e):
+        # Whatever reached here broke a user's request outright.
+        log.exception('Unhandled server error', path=request.path,
+                      method=request.method)
         return render_template('500.html'), 500
 
     @app.cli.command('create-admin')
@@ -85,5 +93,7 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
+
+    log.notice('Application started', log_level=app.config.get('LOG_LEVEL'))
 
     return app

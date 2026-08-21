@@ -1,11 +1,15 @@
 # app/routes/admin.py
 
-from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
+from flask_login import current_user
+from app.logger import get_logger
 from app.models import db, User, Product, Order, Complaint
 from app.decorators import admin_required
 from app.tag_utils import parse_tag_names, get_or_create_tags
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
+
+log = get_logger(__name__)
 
 # Preset placeholder images used to fill in image_url for bulk-generated products.
 BULK_PRODUCT_IMAGES = [
@@ -32,9 +36,18 @@ def promote_user(id):
     user = db.session.get(User, id)
     if user is None:
         abort(404)
-    user.is_admin = True
-    db.session.commit()
-    current_app.logger.info(f"User promoted to admin: {user.email}")
+    try:
+        user.is_admin = True
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        log.exception('Admin promotion failed', target_user_id=id,
+                      admin_id=current_user.id)
+        flash('Something went wrong promoting that user. Please try again.', 'error')
+        return redirect(url_for('admin.users'))
+    # Privilege escalation - always visible at the default level.
+    log.notice('User promoted to admin', target_user_id=user.id,
+               email=user.email, admin_id=current_user.id)
     flash(f'{user.email} is now an admin.', 'success')
     return redirect(url_for('admin.users'))
 
@@ -54,6 +67,8 @@ def new_product():
             if price < 0:
                 raise ValueError
         except ValueError:
+            log.info('Product creation rejected: invalid price',
+                     price=price_str, admin_id=current_user.id)
             flash('Price must be a non-negative number.', 'error')
             return render_template('admin/product_form.html', product=None), 400
 
@@ -62,19 +77,32 @@ def new_product():
             if stock < 0:
                 raise ValueError
         except ValueError:
+            log.info('Product creation rejected: invalid stock',
+                     stock=stock_str, admin_id=current_user.id)
             flash('Stock must be a non-negative integer.', 'error')
             return render_template('admin/product_form.html', product=None), 400
 
         if not name:
+            log.info('Product creation rejected: missing name',
+                     admin_id=current_user.id)
             flash('Name is required.', 'error')
             return render_template('admin/product_form.html', product=None), 400
 
         product = Product(name=name, description=description or None,
                           price=price, stock=stock, image_url=image_url)
         product.tags = get_or_create_tags(parse_tag_names(request.form.get('tags', '')))
-        db.session.add(product)
-        db.session.commit()
-        current_app.logger.info(f"Product created via admin: {product.name}")
+        try:
+            db.session.add(product)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            log.exception('Product creation failed via admin', name=name,
+                          admin_id=current_user.id)
+            flash('Something went wrong adding that product. Please try again.', 'error')
+            return render_template('admin/product_form.html', product=None), 500
+        log.info('Product created via admin', product_id=product.id,
+                 name=product.name, price=product.price, stock=product.stock,
+                 admin_id=current_user.id)
         flash(f'"{product.name}" added.', 'success')
         return redirect(url_for('main.index'))
 
@@ -90,6 +118,8 @@ def bulk_create_products():
         if count < 1 or count > MAX_BULK_PRODUCTS:
             raise ValueError
     except ValueError:
+        log.info('Bulk product creation rejected: invalid count',
+                 count=count_str, admin_id=current_user.id)
         flash(f'Count must be a whole number between 1 and {MAX_BULK_PRODUCTS}.', 'error')
         return render_template('admin/product_form.html', product=None), 400
 
@@ -99,8 +129,16 @@ def bulk_create_products():
         product = Product(name=f'Bulk Product {existing + i + 1}',
                           price=9.99, stock=99, image_url=image_url)
         db.session.add(product)
-    db.session.commit()
-    current_app.logger.info(f"Bulk created {count} products via admin")
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        log.exception('Bulk product creation failed', count=count,
+                      admin_id=current_user.id)
+        flash('Something went wrong adding those products. Please try again.', 'error')
+        return render_template('admin/product_form.html', product=None), 500
+    log.info('Bulk created products via admin', count=count,
+             admin_id=current_user.id)
     flash(f'{count} products added.', 'success')
     return redirect(url_for('main.index'))
 
@@ -124,6 +162,8 @@ def edit_product(id):
             if price < 0:
                 raise ValueError
         except ValueError:
+            log.info('Product update rejected: invalid price', product_id=id,
+                     price=price_str, admin_id=current_user.id)
             flash('Price must be a non-negative number.', 'error')
             return render_template('admin/product_form.html', product=product), 400
 
@@ -132,10 +172,14 @@ def edit_product(id):
             if stock < 0:
                 raise ValueError
         except ValueError:
+            log.info('Product update rejected: invalid stock', product_id=id,
+                     stock=stock_str, admin_id=current_user.id)
             flash('Stock must be a non-negative integer.', 'error')
             return render_template('admin/product_form.html', product=product), 400
 
         if not name:
+            log.info('Product update rejected: missing name', product_id=id,
+                     admin_id=current_user.id)
             flash('Name is required.', 'error')
             return render_template('admin/product_form.html', product=product), 400
 
@@ -145,8 +189,17 @@ def edit_product(id):
         product.stock = stock
         product.image_url = image_url
         product.tags = get_or_create_tags(parse_tag_names(request.form.get('tags', '')))
-        db.session.commit()
-        current_app.logger.info(f"Product updated via admin: id={id}")
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            log.exception('Product update failed via admin', product_id=id,
+                          admin_id=current_user.id)
+            flash('Something went wrong updating that product. Please try again.', 'error')
+            return render_template('admin/product_form.html', product=product), 500
+        log.info('Product updated via admin', product_id=id, name=product.name,
+                 price=product.price, stock=product.stock,
+                 admin_id=current_user.id)
         flash(f'"{product.name}" updated.', 'success')
         return redirect(url_for('main.product_detail', id=product.id))
 
@@ -160,9 +213,18 @@ def delete_product(id):
     if product is None:
         abort(404)
     name = product.name
-    db.session.delete(product)
-    db.session.commit()
-    current_app.logger.info(f"Product deleted via admin: id={id}")
+    try:
+        db.session.delete(product)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        log.exception('Product deletion failed via admin', product_id=id,
+                      name=name, admin_id=current_user.id)
+        flash('Something went wrong deleting that product. Please try again.', 'error')
+        return redirect(url_for('main.index'))
+    # Destructive and hard to reconstruct after the fact.
+    log.notice('Product deleted via admin', product_id=id, name=name,
+               admin_id=current_user.id)
     flash(f'"{name}" deleted.', 'success')
     return redirect(url_for('main.index'))
 
@@ -172,6 +234,8 @@ def delete_product(id):
 def order_lookup():
     order_id = request.args.get('order_id', type=int)
     if order_id is None:
+        log.info('Order lookup rejected: non-numeric order id',
+                 value=request.args.get('order_id'), admin_id=current_user.id)
         flash('Please enter a numeric order ID.', 'error')
         return redirect(url_for('admin.users'))
     return redirect(url_for('admin.order_detail', id=order_id))
