@@ -2,6 +2,18 @@
 
 A server-rendered ecommerce web application built with Python and Flask, developed as part of the Cloud Computing course (UCBX). It covers the full storefront loop — browse, review, cart, checkout, order history, returns and complaints — plus an admin back office, and ships with a round-robin **load balancer** that simulates running the app behind an auto-scaling pool of instances.
 
+## Project Documentation
+
+| Document | Contents |
+|---|---|
+| [`PROJECT_DOCUMENTATION.md`](PROJECT_DOCUMENTATION.md) | **Full project documentation** — overview, features, architecture, challenges, testing results, and screenshots |
+| [`CourseProjectJourney.md`](CourseProjectJourney.md) | Chronological build history, phase by phase |
+| [`docs/architecture.md`](docs/architecture.md) | Architecture diagrams (Mermaid source) |
+| [`docs/slides/`](docs/slides/) | Final presentation — [Markdown](docs/slides/final-presentation.md), [PDF](docs/slides/final-presentation.pdf), [PPTX](docs/slides/final-presentation.pptx) |
+| [`docs/screenshots/`](docs/screenshots/) | Application screenshots and rendered diagrams |
+
+**Verification status:** 131 pytest tests passing · 99/99 cross-browser checks passing (Chromium, Firefox, WebKit) · zero horizontal overflow across 12 pages at 3 viewport widths · load balancer verified through scale-up, scale-down, and total-failure scenarios.
+
 ## Features
 
 **Storefront**
@@ -222,6 +234,20 @@ pytest -v
 ```
 
 Tests run against an in-memory SQLite database with CSRF disabled, via fixtures in [`tests/conftest.py`](tests/conftest.py), so they never touch your development data. The same suite runs in GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) alongside a Docker build on every push and pull request to `main`.
+
+### Cross-Browser and Responsive Testing
+
+Beyond the unit suite, [`scripts/browser_matrix_test.py`](scripts/browser_matrix_test.py) drives a real purchase flow through **Chromium, Firefox, and WebKit** (Safari's engine) and checks every page for horizontal overflow at phone, tablet, and desktop widths — 99 checks in total.
+
+```bash
+pip install playwright && python -m playwright install
+DATABASE_URL=sqlite:///demo.db PORT=5055 python run.py &
+python scripts/browser_matrix_test.py
+```
+
+[`scripts/capture_screenshots.py`](scripts/capture_screenshots.py) regenerates the images in `docs/screenshots/` against a running instance.
+
+> Playwright is a documentation- and testing-time tool. It is deliberately **not** in `requirements.txt`, so the application's runtime dependencies stay minimal.
 
 ## Project Structure
 
