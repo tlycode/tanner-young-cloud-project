@@ -6,8 +6,11 @@
     <title>{% block title %}Shop{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
+        /* Padding counts inside declared widths, so width:100% inputs never overflow. */
+        *, *::before, *::after { box-sizing: border-box; }
         body { font-family: sans-serif; max-width: 900px; margin: 0 auto; padding: 1rem; }
-        nav { display: flex; gap: 1rem; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; }
+        /* Nav wraps rather than overflowing once the links outgrow the viewport. */
+        nav { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; }
         nav a { text-decoration: none; color: #333; }
         nav a:hover { text-decoration: underline; }
         nav .spacer { flex: 1; }
@@ -38,6 +41,25 @@
         .star-rating-input input:focus-visible + label {
             outline: 2px solid #222; outline-offset: 2px;
         }
+
+        /* Long emails and URLs shouldn't force the page wider than the screen. */
+        body { overflow-wrap: break-word; }
+        img { max-width: 100%; height: auto; }
+
+        /* Wide admin tables scroll inside their own box instead of stretching the page. */
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-scroll table { min-width: 32rem; }
+
+        @media (max-width: 640px) {
+            body { padding: 0.75rem; }
+            /* The account email is the least useful nav item on a narrow screen. */
+            nav { gap: 0.6rem 0.9rem; font-size: 0.95rem; }
+            nav .nav-email { display: none; }
+        }
+
+        @media (max-width: 400px) {
+            nav { gap: 0.5rem 0.75rem; }
+        }
     </style>
 </head>
 <body>
@@ -56,7 +78,7 @@
                 <a href="{{ url_for('admin.users') }}">Admin</a>
                 <a href="{{ url_for('admin.complaints') }}">Complaints</a>
             {% endif %}
-            <span>{{ current_user.email }}</span>
+            <span class="nav-email">{{ current_user.email }}</span>
             <a href="{{ url_for('auth.logout') }}">Logout</a>
         {% else %}
             <a href="{{ url_for('auth.login') }}">Login</a>

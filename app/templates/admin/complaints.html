@@ -3,7 +3,7 @@
 {% block content %}
     <h1>Complaints</h1>
 
-    <form method="GET" action="{{ url_for('admin.order_lookup') }}" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem;">
+    <form method="GET" action="{{ url_for('admin.order_lookup') }}" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem;">
         <label for="order_id" style="font-size: 0.9rem; color: #555;">Look up order by ID</label>
         <input type="number" id="order_id" name="order_id" min="1" style="width: 100px; padding: 0.35rem;">
         <button type="submit" style="padding: 0.35rem 0.75rem; border: 1px solid #aaa; border-radius: 4px; background: none; cursor: pointer;">
@@ -12,6 +12,7 @@
     </form>
 
     {% if complaints %}
+        <div class="table-scroll">
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr>
@@ -36,6 +37,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     {% else %}
         <p style="color: #888;">No complaints have been submitted.</p>
     {% endif %}

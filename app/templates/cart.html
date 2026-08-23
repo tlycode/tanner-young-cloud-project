@@ -8,7 +8,7 @@
             {% for item in items %}
                 <div style="display: flex; align-items: center; gap: 1rem; border: 1px solid #ddd; border-radius: 6px; padding: 1rem;">
                     {% if item.product.image_url %}
-                        <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}"
+                        <img src="{{ item.product.image_url }}" alt="{{ item.product.name }}" loading="lazy" decoding="async"
                              style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px;">
                     {% endif %}
                     <div style="flex: 1;">
