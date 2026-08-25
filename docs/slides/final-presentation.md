@@ -1,157 +1,177 @@
 ---
-title: ShopFlow — Resilient Commerce for Small Sellers
+title: Cloud Architecture of a Flask E-Commerce Platform
 subtitle: Cloud Computing (UCBX) — Final Project
 author: Tanner Young
 date: August 2026
 ---
 
-# Slide 1 — The Problem, the Customer, the Value
+# Slide 1 — The Cloud Problem and the Approach
 
-## The Problem
+## The Problem Cloud Architecture Solves Here
 
-Small online sellers get punished for their best days.
+A storefront on one server fails at exactly the wrong moment: a product gets featured, traffic spikes 10x, and the busiest hour becomes the hour customers cannot buy. Vertical scaling is capacity you pay for year-round and still outgrow in a spike.
 
-A hosted storefront on a single server handles an ordinary Tuesday fine. Then a product gets featured, a post takes off, a holiday lands — traffic spikes 10x and the site slows, times out, or falls over. **The busiest hour of the year becomes the hour customers cannot buy.**
+**The cloud answer is horizontal:** many small identical instances behind a load balancer, added and removed as demand moves.
 
-The usual escape routes both cost real money: pay year-round for capacity you need twice a year, or rebuild on a platform that takes 3% of every sale forever.
+## What That Requires of the Application
 
-## Ideal Customer Profile
+Horizontal scaling is not a deployment trick — it constrains how the app is written. Three properties had to hold:
 
-| | |
-|---|---|
-| **Who** | Independent sellers — 10 to 500 SKUs, 1–3 person team |
-| **Revenue** | $50K–$2M annually |
-| **Traffic** | Spiky: quiet baseline, sharp promotional peaks |
-| **Pain** | Downtime during peaks; margin lost to platform fees |
-| **Technical depth** | Comfortable deploying, no dedicated DevOps staff |
-
-## Value Proposition
-
-**Capacity that follows demand, on infrastructure you own.**
-
-- **Scales horizontally under load** — add an instance and it serves traffic within 5 seconds, no restart, no config change
-- **Degrades gracefully** — a failed instance leaves rotation automatically; the storefront stays up
-- **Owned, not rented** — runs on any host; no per-transaction fee
-- **Complete out of the box** — catalog, reviews, cart, checkout, orders, returns, and an admin back office
-
----
-
-# Slide 2 — Methods and Features
-
-## How It Was Built
-
-**Approach:** server-rendered Flask, built in five phases over ~5 months — scaffold, foundation, storefront, depth, cloud. CI enforced from phase 2: every push runs the test suite and a Docker build.
-
-**Why server-rendered rather than a SPA:** every page load is a real HTTP request, so routing through the load balancer to a specific instance is directly observable — the property the project exists to demonstrate.
-
-**Stack:** Python 3.12 · Flask 3.x · SQLAlchemy · Flask-Login · Jinja2 · pytest · Docker · GitHub Actions
-
-## What It Does
-
-| Area | Capability |
-|---|---|
-| **Accounts** | Registration, login, signed single-use password reset |
-| **Catalog** | Products, images, many-to-many tag filtering, JSON API |
-| **Reviews** | 1–5 star ratings, one per user per product, editable |
-| **Cart** | Session-backed, live badge, quantity updates |
-| **Checkout** | Address + mock payment — no card data stored |
-| **Orders** | History, detail, Buy Again, returns, complaints |
-| **Admin** | Product CRUD, bulk seeding, user promotion, complaints queue |
-| **Infrastructure** | Round-robin load balancer, health checks, auto-discovery |
-
-## Security, Built In From the Start
-
-CSRF on every state-changing POST · PBKDF2-SHA256 password hashing · field whitelisting against mass assignment · **ownership-checked orders — not merely login-checked** · role-gated admin via `@admin_required`
-
----
-
-# Slide 3 — Code Review, Challenges, Solutions
-
-## Architecture Decisions Under Review
-
-| Decision | Why | Trade-off accepted |
+| Requirement | Why it matters | How it was met |
 |---|---|---|
-| `create_app()` factory | Injectable test config | More indirection than a flat module |
-| One DB per instance | SQLite locks under concurrent writes | Data differs per instance — documented, not hidden |
-| Port-range scanning | Shows dynamic membership without extra infra | A simulation; real systems use a service registry |
-| Split requirements files | `psycopg2` needs compilers the image lacks | Two files to keep in sync |
+| **Stateless app tier** | Any instance must serve any request | Session in a signed cookie, not server memory |
+| **Externalized config** | One image, many environments | All config from environment variables |
+| **Health-reporting instances** | The balancer must know who is alive | HTTP probe per instance every 5s |
 
-## Challenges and How They Were Solved
+## Cloud Concepts Implemented
 
-**A flat `app.py` could not be tested.** Importing it built a live app bound to the dev database. Restructured into an application factory accepting a test config — the change that made all 131 tests possible.
+**Load balancing** · **health checking** · **auto-scaling simulation** · **stateless application tier** · **CDN-offloaded assets** · **role-based access control** · **containerization** · **CI/CD**
 
-**A static backend list demonstrated nothing.** Round-robin across fixed targets shows distribution but not elasticity. Added a health-check thread scanning a port range, so instances join and leave rotation on their own.
-
-**SQLite locked under multi-instance writes.** Gave each backend its own database file — an explicit trade-off, documented in the README rather than buried.
-
-**Docker rebuilt dependencies on every source edit.** Reordered the Dockerfile: copy requirements → install → *then* copy source.
-
-## Caught in Final Review
-
-The stylesheet had a viewport meta tag but **zero media queries**. On a 375px screen the nav needed 552px against 343px available — **"Logout" was clipped off-screen and unreachable.**
-
-It survived earlier passes because a screenshot *looked* fine: the browser zoomed out to fit, reporting a 568px viewport for a 375px device. Measuring `scrollWidth` against `clientWidth` exposed it. **Verify by measurement, not by eye.**
+Each is covered in the slides that follow, with the trade-offs stated rather than hidden.
 
 ---
 
-# Slide 4 — From Defect to Verified Fix
+# Slide 2 — Load Balancer and Elastic Capacity
 
-## Five Issues Found, Fixed, and Re-Verified
+## Design
 
-| # | Issue | Impact | Fix |
-|---|---|---|---|
-| 1 | Nav overflowed; **"Logout" clipped** | Control unreachable on mobile | `flex-wrap` + media query |
-| 2 | Forms 5px past viewport | Horizontal scroll on 3 pages | Global `box-sizing: border-box` |
-| 3 | Hero image forced 412px | Horizontal scroll | Fluid width with a cap |
-| 4 | Admin tables stretched page | Horizontal scroll | Dedicated scroll container |
-| 5 | Catalog **5.8s** on Slow 3G | Perceived performance | Lazy-loaded thumbnails |
+`load_balancer/load_balancer.py` — a Flask reverse proxy on `:8000` implementing four behaviors:
 
-## Two Root Causes, Not Five Bugs
+| Behavior | Implementation |
+|---|---|
+| **Round-robin** | `itertools.count()` cycles the healthy pool |
+| **Health checking** | Daemon thread probes each backend every 5s, 2s timeout |
+| **Auto-scaling** | Scans ports 5000–5010; instances join/leave on their own |
+| **Retry on failure** | A request to a dead backend re-dispatches to the next |
 
-Issues 2–4 share one cause: the default `content-box` model, where `width: 100%` plus padding exceeds the parent. **One line — `box-sizing: border-box` — fixed three pages.**
+Hop-by-hop headers (`connection`, `transfer-encoding`, `content-length`) are stripped per RFC 7230 rather than blindly forwarded.
 
-Issue 5 was nine full-size images fetched eagerly, including those far below the fold.
+## Failure Behavior
 
-## Measured Outcome
+| Condition | Response |
+|---|---|
+| Backend dies mid-request | Retry next target; client never sees the failure |
+| All retries exhausted | `502 Bad Gateway` |
+| Zero healthy backends | `503 Service Unavailable` — degrades, does not crash |
 
-| Metric | Before | After |
-|---|---|---|
-| Catalog load, Slow 3G | 5,834 ms | **968 ms** (83% faster) |
-| Pages overflowing at 375px | 4 of 12 | **0 of 12** |
-| Nav overflow at 375px | 552px into 343px | **No overflow** |
-
-Every fix was re-verified by the same instrumented measurement that found it — not by looking again.
-
----
-
-# Slide 5 — Proof: Elastic Capacity in Action
-
-## The Claim, Demonstrated
-
-Slide 1 promised capacity that follows demand. This is that behavior, captured live — a third instance joining and leaving a running pool with **no restart and no configuration change**.
+## Verified Live
 
 ![Load balancer auto-scaling](../screenshots/13-load-balancer.png)
 
-## What the Log Shows
+A third instance joins a running pool in one health interval and leaves when killed — **no restart, no config change.**
 
-| Phase | Event | Behavior |
+---
+
+# Slide 3 — Stateless Tier and Fast Image Delivery
+
+## Why the App Tier Is Stateless
+
+Round-robin only works if any instance can serve any request. Flask sessions are **signed client-side cookies**, so cart and login state travel *with* the request rather than living on one server.
+
+The proof: a cart built on instance A, read back from instance B — a different process with a **different database** — returns the identical cart.
+
+![Stateless session across instances](../screenshots/14-stateless-session.png)
+
+This is why the deployment needs **no sticky sessions**. `SECRET_KEY` is shared across instances; any of them can verify the signature.
+
+## Fast Image Loading
+
+Product images are **remote URLs, never served by the app** — the application ships zero binary assets, so image bandwidth never touches the instances or the load balancer. That is CDN offload in practice.
+
+Delivery was then tuned in the browser:
+
+| Technique | Effect |
+|---|---|
+| `loading="lazy"` | Below-the-fold images deferred until scrolled toward |
+| `decoding="async"` | Decode off the main thread; no render block |
+
+**Measured on throttled Slow 3G (400 kbps, 400 ms RTT):**
+
+| Metric | Before | After |
 |---|---|---|
-| Steady state | 2 backends | Requests alternate 5001 / 5002 |
-| **Scale up** | Instance started on :5003 | Detected in one 5s interval, joins rotation |
-| **Scale down** | :5003 killed | Evicted; traffic returns to 2 backends |
-| **Total failure** | All backends down | **HTTP 503** — degrades, does not crash |
+| Catalog load (9 images) | 5,834 ms | **968 ms — 83% faster** |
 
-## Verification at Four Levels
+---
 
-| Level | Method | Result |
+# Slide 4 — Security and Role-Based Access Control
+
+## Roles: How They Work
+
+A single `is_admin` flag on `User`, enforced by an `@admin_required` decorator that aborts with **403** for anyone unauthenticated or non-admin.
+
+```
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if (not current_user.is_authenticated
+                or not current_user.is_admin):
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+```
+
+**Coverage:** 12 admin-gated routes · 10 login-gated routes.
+
+## Four Tiers of Authorization
+
+| Tier | Rule | Example |
 |---|---|---|
-| Unit / integration | pytest, in-memory SQLite | **131 passing** |
-| Cross-browser | Real purchase flow: Chromium, Firefox, WebKit | **99/99 passing** |
-| Responsive | `scrollWidth` measured, 12 pages × 3 widths | **Zero overflow** |
-| Infrastructure | Scale up, scale down, total failure | **All scenarios pass** |
+| Public | No auth | Catalog, product detail |
+| Authenticated | `@login_required` | Cart, checkout, order history |
+| **Ownership** | Must own the record | `/orders/<id>` — **403 on another user's order** |
+| Admin | `@admin_required` | Product CRUD, user promotion, complaints |
 
-## Bottom Line
+**Ownership is checked, not just login.** A logged-in user requesting another's order is refused — verified in all three browser engines.
 
-A small seller's storefront **survives its best day** — capacity joins in seconds, failure is absorbed rather than propagated, and every claim here is backed by a test that can be re-run.
+## Bootstrapping the First Admin
+
+Registration never sets `is_admin`, and the promotion UI is itself admin-gated — so a fresh database has no path to an admin through the web. `flask create-admin <email>` breaks the cycle from the CLI. **No privilege escalation path exists through the application.**
+
+## Defense in Depth
+
+**CSRF** on every state-changing POST — a missing token returns 400 · **PBKDF2-SHA256** password hashing, 8-char minimum · **Field whitelisting** blocks mass assignment · **Signed, single-use, 1-hour** reset tokens · **Identical response** for known and unknown emails, preventing account enumeration
+
+---
+
+# Slide 5 — SQLite Today, Managed Cloud Database Next
+
+## Why SQLite Is the Current Data Tier
+
+Pointing several instances at one SQLite file produced `database is locked` under concurrent writes — SQLite allows a single writer. Each instance therefore owns its **own database file**.
+
+This was the deliberate trade-off:
+
+| Gained | Given up |
+|---|---|
+| Multi-instance load balancing runs anywhere, zero setup | Data is **per-instance**, not shared |
+| No external service to provision for a course demo | Order written on A is invisible on B |
+
+**Stated plainly rather than hidden:** the app tier scales correctly; the *data* tier is the deliberate simulation boundary of this project.
+
+## Why the Application Is Already Portable
+
+The constraint is the storage engine, not the code. SQLAlchemy abstracts the dialect and **the connection string is already an environment variable**:
+
+```
+DATABASE_URL=sqlite:///app1.db                      # today
+DATABASE_URL=postgresql://user:pw@rds-host/shop     # one variable away
+```
+
+`psycopg2-binary` already ships in `requirements.txt`. **No application code changes to move to PostgreSQL.**
+
+## Future Improvement: Managed Cloud Database
+
+| Step | Change | Unlocks |
+|---|---|---|
+| 1 | Point every instance at one managed PostgreSQL (RDS/Cloud SQL) | **Shared state** — any instance serves any user identically |
+| 2 | Enable `Flask-Migrate` (already a dependency) | Versioned schema across deploys |
+| 3 | Add a read replica | Read scaling for the catalog |
+| 4 | Move sessions to Redis | Server-side revocation, larger session payloads |
+
+Step 1 alone removes the only limitation on this slide — and it is a configuration change, not a rewrite.
+
+## Verified End to End
+
+**131 pytest tests** · **99/99 cross-browser checks** (Chromium, Firefox, WebKit) · **zero layout overflow**, 12 pages × 3 widths · **load balancer**: round-robin, scale-up, scale-down, 502 retry, 503 total failure
 
 **Repository:** https://github.com/tlycode/tanner-young-cloud-project

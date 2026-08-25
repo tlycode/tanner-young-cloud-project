@@ -254,12 +254,18 @@ def build_pptx(slides):
                 if img_path.exists():
                     with Image.open(img_path) as im:
                         iw, ih = im.size
+                    # A figure needs real estate to stay legible: if this column
+                    # is too far down, move to the top of the next one.
+                    if y[col] > Inches(3.4) and col == left_x:
+                        col = right_x
                     disp_w = col_w
                     disp_h = int(disp_w * ih / iw)
-                    # Keep the figure inside the slide's content area.
-                    max_h = Inches(3.1)
+                    # Cap by whatever vertical room is actually left in this
+                    # column, so a figure placed low still lands on the slide.
+                    footer_top = Inches(6.95)
+                    max_h = min(Inches(3.1), max(Inches(1.0), footer_top - y[col]))
                     if disp_h > max_h:
-                        disp_h = max_h
+                        disp_h = int(max_h)
                         disp_w = int(disp_h * iw / ih)
                     slide.shapes.add_picture(str(img_path), col, y[col], disp_w, disp_h)
                     y[col] += disp_h + Inches(0.14)
