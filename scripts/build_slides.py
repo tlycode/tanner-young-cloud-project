@@ -17,6 +17,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 from pptx import Presentation
 from pptx.dml.color import RGBColor
+from PIL import Image
 from pptx.util import Emu, Inches, Pt
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -55,13 +56,23 @@ def md_inline(text):
     """Minimal inline Markdown -> HTML (escaping first)."""
     text = html.escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", text)
     text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
     return text
 
 
+IMAGE_RE = re.compile(r"^!\[(?P<alt>[^\]]*)\]\((?P<src>[^)]+)\)$")
+
+
 def block_to_html(block):
-    """Convert one Markdown block (table, code fence, list, heading, para)."""
+    """Convert one Markdown block (image, table, code fence, list, heading, para)."""
     lines = block.split("\n")
+
+    m = IMAGE_RE.match(lines[0].strip())
+    if m:
+        # Resolve relative to the Markdown file so the PDF renderer can load it.
+        src = (SRC.parent / m.group("src")).resolve()
+        return f'<img class="figure" src="{src.as_uri()}" alt="{html.escape(m.group("alt"))}">'
 
     if lines[0].startswith("```"):
         code = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
@@ -111,11 +122,13 @@ def build_pdf(slides):
             page-break-after: always; overflow: hidden; background: #fff; }}
   .bar {{ position: absolute; top: 0; left: 0; right: 0; height: 8px; background: #4f46e5; }}
   h1 {{ font-size: 30px; margin: 6px 0 4px; letter-spacing: -0.4px; }}
-  h2 {{ font-size: 19px; color: #4f46e5; margin: 14px 0 8px; font-weight: 600; }}
+  h2 {{ font-size: 19px; color: #4f46e5; margin: 14px 0 8px; font-weight: 600;
+        break-after: avoid; page-break-after: avoid; }}
   p {{ font-size: 14.5px; line-height: 1.5; margin: 7px 0; }}
   ul {{ margin: 6px 0 10px 20px; padding: 0; }}
   li {{ font-size: 14px; line-height: 1.55; margin-bottom: 4px; }}
   strong {{ color: #1e1b4b; }}
+  em {{ font-style: italic; }}
   code {{ font-family: 'SF Mono', Menlo, monospace; font-size: 12.5px;
           background: #eef2ff; padding: 1px 5px; border-radius: 3px; }}
   pre {{ font-family: 'SF Mono', Menlo, monospace; font-size: 12px; line-height: 1.45;
@@ -127,6 +140,8 @@ def build_pdf(slides):
   td {{ font-size: 12.5px; padding: 5px 11px; border-bottom: 1px solid #e6e9f2; }}
   .content {{ column-count: 2; column-gap: 34px; column-fill: balance; max-height: 5.75in; }}
   .content > * {{ break-inside: avoid; }}
+  .figure {{ display: block; width: 100%; max-width: 100%; height: auto;
+              border: 1px solid #e6e9f2; border-radius: 6px; margin: 10px 0 12px; }}
   .foot {{ position: absolute; bottom: 0.34in; left: 0.75in; right: 0.75in;
            display: flex; justify-content: space-between;
            font-size: 10.5px; color: #8890a8; border-top: 1px solid #e6e9f2; padding-top: 7px; }}
@@ -151,6 +166,7 @@ def build_pdf(slides):
 
 def strip_md(text):
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", r"\1", text)
     return re.sub(r"`(.+?)`", r"\1", text)
 
 
@@ -231,6 +247,23 @@ def build_pptx(slides):
             # Switch to the right column past the midpoint of the left one
             if y[col] > Inches(5.6) and col == left_x:
                 col = right_x
+
+            m = IMAGE_RE.match(lines[0].strip())
+            if m:
+                img_path = (SRC.parent / m.group("src")).resolve()
+                if img_path.exists():
+                    with Image.open(img_path) as im:
+                        iw, ih = im.size
+                    disp_w = col_w
+                    disp_h = int(disp_w * ih / iw)
+                    # Keep the figure inside the slide's content area.
+                    max_h = Inches(3.1)
+                    if disp_h > max_h:
+                        disp_h = max_h
+                        disp_w = int(disp_h * iw / ih)
+                    slide.shapes.add_picture(str(img_path), col, y[col], disp_w, disp_h)
+                    y[col] += disp_h + Inches(0.14)
+                continue
 
             if lines[0].startswith("```"):
                 code = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
