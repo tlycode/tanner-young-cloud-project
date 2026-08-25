@@ -16,6 +16,7 @@
 5. [Testing and Debugging](#5-testing-and-debugging)
 6. [Screenshots](#6-screenshots)
 7. [Running the Project](#7-running-the-project)
+8. [Use of AI Assistance](#8-use-of-ai-assistance)
 
 Companion documents: [`README.md`](README.md) (setup and usage), [`CourseProjectJourney.md`](CourseProjectJourney.md) (chronological build history), [`docs/architecture.md`](docs/architecture.md) (diagram sources), [`docs/slides/`](docs/slides/) (presentation).
 
@@ -528,6 +529,29 @@ python load_balancer/load_balancer.py          # http://127.0.0.1:8000
 ```
 
 Start another instance on any port in 5000–5010 and it joins rotation automatically.
+
+---
+
+## 8. Use of AI Assistance
+
+AI assistance (Claude) was used throughout this project. This section describes where and how, so the origin of the work is clear.
+
+### Where AI was used
+
+- **Exploring features and deciding on pathways.** Weighing implementation options — how to structure the load balancer's backend discovery, whether to enforce one-review-per-user in application code or as a database constraint, how to split requirements for the Docker build — and talking through the trade-offs before committing to an approach.
+- **Writing code.** Generating implementations from my direction, across the storefront, admin area, load balancer, and test suite.
+- **Testing and debugging.** Instrumented testing during the final round, including the cross-browser matrix and the responsive measurements that surfaced the navigation overflow and form sizing bugs.
+- **Polishing documentation.** Drafting and structuring this document, the README, the architecture diagrams, and the presentation deck.
+
+### How the work was directed and reviewed
+
+I set the direction: what to build, which approach to take when there were options, and what was acceptable to commit. I reviewed generated code and documentation, revised it where it did not match my intent, and made the final call on every commit. Work that did not hold up was changed or discarded before it landed.
+
+The engineering decisions this project is meant to demonstrate — the four-tier architecture, the auto-scaling simulation via port scanning, one database per instance to sidestep SQLite write contention, security as a first-class concern from the first authentication commit — are mine, arrived at over roughly five months of development.
+
+### Why this is disclosed
+
+Two reasons. First, so the record of how this project was built is accurate. Second, because some of this document reconstructs the reasoning behind decisions made months earlier; a reader should know which parts are contemporaneous record and which are later reconstruction, and weight them accordingly.
 
 ---
 

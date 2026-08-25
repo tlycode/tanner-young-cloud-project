@@ -2,6 +2,8 @@
 
 A server-rendered ecommerce web application built with Python and Flask, developed as part of the Cloud Computing course (UCBX). It covers the full storefront loop — browse, review, cart, checkout, order history, returns and complaints — plus an admin back office, and ships with a round-robin **load balancer** that simulates running the app behind an auto-scaling pool of instances.
 
+> **Note on AI assistance.** AI (Claude) was used on this project to explore features and decide on implementation pathways, write code, test and debug, and polish documentation. I directed the work, reviewed and revised what was produced, and made the final call on every commit. See [Use of AI Assistance](PROJECT_DOCUMENTATION.md#8-use-of-ai-assistance) for detail.
+
 ## Project Documentation
 
 | Document | Contents |
